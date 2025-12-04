@@ -10,9 +10,9 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
  * Crea y devuelve un cliente de Supabase configurado para leer las cookies 
  * de la request de Next.js, permitiendo la autenticación en SSR.
  */
-export function createServerSupabaseClient(): SupabaseClient {
+export async function createServerSupabaseClient(): Promise<SupabaseClient> {
     // Definimos el handler de cookies de forma segura
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     
     return createServerClient(
         supabaseUrl,

@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase-browser'; // Cliente SSR
+import { createServerSupabaseClient } from '@/lib/supabase-server'; // Cliente SSR
 import FeedLayout from '@/components/FeedLayout'; 
 import { Tab, getDateISO } from '@/utils/helpers';
 import { supabase } from '@/lib/supabase-browser'; // Cliente simple para las consultas
@@ -11,7 +11,7 @@ export const revalidate = 0;
 export default async function Home() {
   
   // 1. INICIALIZAR CLIENTE DE SERVIDOR (FIX de Cookies)
-  const serverSupabase = createServerSupabaseClient();
+  const serverSupabase = await createServerSupabaseClient();
   
   const activeTab: Tab = 'destacados'; 
   

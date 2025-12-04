@@ -11,7 +11,7 @@ export default async function RootLayout({
 }) {
   
   // 1. Obtener la sesión en el SERVIDOR (SSR)
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const { data: { session } } = await supabase.auth.getSession();
   
   return (
