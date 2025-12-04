@@ -1,7 +1,8 @@
 'use client';
 
-import { supabase } from '@/lib/supabase-browser';
-import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase-browser'; // Cliente de Browser
+import { useState } from 'react';
+import { useSession } from './SessionProvider'; // Importamos el hook global
 
 interface DealActionsProps {
     dealId: number;
@@ -11,22 +12,16 @@ interface DealActionsProps {
 }
 
 export default function DealActions({ dealId, initialIsSaved, dealTitle, dealLink }: DealActionsProps) {
+    const { user } = useSession(); // <-- USAMOS EL ESTADO GLOBAL
     const [isSaved, setIsSaved] = useState(initialIsSaved);
-    const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
-
-    useEffect(() => {
-        const checkUser = async () => {
-            // Utilizamos getUser para una verificación asíncrona segura
-            const { data: { user } } = await supabase.auth.getUser();
-            setIsUserLoggedIn(!!user);
-        };
-        checkUser();
-    }, []);
+    
+    // El estado de login se determina directamente por el hook
+    const isUserLoggedIn = !!user;
 
     const handleFavorite = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
+        const userId = user?.id; // Obtenemos la ID directamente del contexto
+
+        if (!isUserLoggedIn || !userId) {
             alert('Debes iniciar sesión para guardar un chollo.');
             return;
         }
@@ -35,22 +30,22 @@ export default function DealActions({ dealId, initialIsSaved, dealTitle, dealLin
         setIsSaved(actionWasSave); // Optimistic UI update
 
         if (actionWasSave) {
-            // --- AÑADIR FAVORITO ---
+            // Añadir favorito
             const { error } = await supabase.from('favorites').insert({ 
                 deal_id: dealId, 
-                user_id: user.id // Usamos la ID del usuario de la sesión resuelta
+                user_id: userId
             });
             
             if (error) {
-                console.error('Error al guardar favorito (RLS o DB):', error.message);
+                console.error('Error al guardar favorito:', error.message);
                 setIsSaved(false); // Revertir si falla
-                alert(`Error al guardar: ${error.message}. ¿RLS?`);
+                alert(`Error al guardar: ${error.message}`);
             }
         } else {
-            // --- ELIMINAR FAVORITO ---
+            // Eliminar favorito
             const { error } = await supabase.from('favorites').delete().match({ 
                 deal_id: dealId, 
-                user_id: user.id 
+                user_id: userId
             });
             
             if (error) {

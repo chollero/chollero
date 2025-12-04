@@ -1,107 +1,84 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase-browser';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useSession } from './SessionProvider'; // Importamos el hook global
 
-export default function VoteControl({ id, initialTemp }: { id: number, initialTemp: number }) {
-  const [temp, setTemp] = useState(initialTemp);
-  const [userVote, setUserVote] = useState<number | null>(null); // null = sin votar, 1 = positivo, -1 = negativo
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
+interface VoteControlProps {
+    id: number;
+    initialTemp: number;
+}
 
-  // 1. Al cargar, miramos si el usuario ya ha votado a este chollo
-  useEffect(() => {
-    const checkUserVote = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+export default function VoteControl({ id, initialTemp }: VoteControlProps) {
+    const { user } = useSession(); // <-- USAMOS EL ESTADO GLOBAL
+    const [temperature, setTemperature] = useState(initialTemp);
+    const [userVoted, setUserVoted] = useState<'up' | 'down' | null>(null);
 
-      const { data } = await supabase
-        .from('votes')
-        .select('value')
-        .eq('deal_id', id)
-        .eq('user_id', user.id)
-        .single();
+    const handleVote = async (type: 'up' | 'down') => {
+        const userId = user?.id; // Obtenemos la ID directamente del contexto
+        
+        if (!userId) {
+            alert('Debes iniciar sesión para votar.');
+            return;
+        }
 
-      if (data) {
-        setUserVote(data.value);
-      }
+        // ... (Tu lógica de voto sigue aquí) ...
+        
+        // 1. Determinar el cambio de temperatura
+        let newTemp = temperature;
+        let voteValue = type === 'up' ? 1 : -1;
+
+        if (userVoted === type) {
+            // Deshacer el voto
+            voteValue = type === 'up' ? -1 : 1;
+            setUserVoted(null);
+            newTemp += voteValue;
+            
+            // Eliminar de la tabla votes
+            await supabase.from('votes').delete().match({ deal_id: id, user_id: userId });
+        } else {
+            if (userVoted) {
+                // Cambiar voto (restar el viejo y sumar el nuevo)
+                newTemp += (userVoted === 'up' ? -1 : 1); 
+            }
+            
+            newTemp += voteValue;
+            setUserVoted(type);
+            
+            // Insertar o actualizar en la tabla votes
+            await supabase.from('votes').upsert(
+                { deal_id: id, user_id: userId, type: type },
+                { onConflict: 'deal_id, user_id' }
+            );
+        }
+
+        // 2. Actualizar el chollo con la nueva temperatura
+        await supabase.from('deals').update({ temperature: newTemp }).eq('id', id);
+        setTemperature(newTemp);
     };
-    
-    checkUserVote();
-  }, [id]);
 
-  const handleVote = async (newValue: number) => {
-    setLoading(true);
-    
-    // 1. Comprobamos usuario
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert("Debes iniciar sesión para votar");
-      router.push('/login');
-      setLoading(false);
-      return;
-    }
-
-    // 2. Lógica optimista (calculamos visualmente antes de enviar)
-    let newTemp = temp;
-    
-    if (userVote === newValue) {
-      // A. Si pulso lo mismo que ya tenía -> QUITAR VOTO
-      newTemp = temp - newValue;
-      setUserVote(null); // Visualmente ya no hay voto
-      
-      // Enviar borrado a Supabase
-      await supabase.from('votes').delete().match({ deal_id: id, user_id: user.id });
-
-    } else if (userVote) {
-      // B. Si tenía un voto distinto -> CAMBIAR VOTO
-      // (Ej: tenía -1 y pulso +1. La diferencia es +2 grados)
-      newTemp = temp - userVote + newValue;
-      setUserVote(newValue);
-
-      // Enviar update a Supabase (Upsert maneja tanto insert como update)
-      await supabase.from('votes').upsert({ deal_id: id, user_id: user.id, value: newValue });
-
-    } else {
-      // C. Si no tenía voto -> NUEVO VOTO
-      newTemp = temp + newValue;
-      setUserVote(newValue);
-
-      // Enviar insert
-      await supabase.from('votes').insert({ deal_id: id, user_id: user.id, value: newValue });
-    }
-
-    setTemp(newTemp);
-    setLoading(false);
-    router.refresh(); // Refresca para que otros componentes se enteren si es necesario
-  };
-
-  return (
-    <div className="flex items-center gap-3 border border-gray-600 bg-gray-800/50 rounded-full px-3 py-1.5 shadow-sm">
-      {/* BOTÓN MENOS */}
-      <button 
-        onClick={() => handleVote(-1)}
-        disabled={loading}
-        className={`transition ${userVote === -1 ? 'text-blue-500 font-bold' : 'text-gray-400 hover:text-blue-400'}`}
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
-      </button>
-      
-      {/* TEMPERATURA */}
-      {/* Si es positivo Naranja, si es negativo Azul, si es 0 Gris */}
-      <span className={`font-bold text-sm ${temp > 0 ? "text-orange-500" : temp < 0 ? "text-blue-500" : "text-gray-400"}`}>
-        {temp}°
-      </span>
-      
-      {/* BOTÓN MÁS */}
-      <button 
-        onClick={() => handleVote(1)}
-        disabled={loading}
-        className={`transition ${userVote === 1 ? 'text-orange-500 font-bold' : 'text-gray-400 hover:text-orange-500'}`}
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
-      </button>
-    </div>
-  );
+    return (
+        <div className="flex items-center gap-1 bg-gray-900/50 rounded-full p-1 border border-gray-700">
+            {/* Botón ARRIBA (UP) */}
+            <button
+                onClick={() => handleVote('up')}
+                className={`w-8 h-8 rounded-full text-lg transition ${userVoted === 'up' ? 'bg-orange-500 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                title="Voto positivo"
+            >
+                ▲
+            </button>
+            
+            {/* Indicador de Temperatura */}
+            <span className="text-white text-md font-bold mx-1">{temperature}°</span>
+            
+            {/* Botón ABAJO (DOWN) */}
+            <button
+                onClick={() => handleVote('down')}
+                className={`w-8 h-8 rounded-full text-lg transition ${userVoted === 'down' ? 'bg-red-500 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                title="Voto negativo"
+            >
+                ▼
+            </button>
+        </div>
+    );
 }

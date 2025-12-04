@@ -1,7 +1,7 @@
 // src/app/layout.tsx
 import './globals.css';
 import GlobalHeader from '@/components/GlobalHeader';
-import { createServerSupabaseClient } from '@/lib/supabase-browser'; // Cliente SSR
+import { createServerSupabaseClient } from '@/lib/supabase-server'; // Cliente SSR
 import { SessionProvider } from '@/components/SessionProvider'; // Proveedor de estado
 
 export default async function RootLayout({
