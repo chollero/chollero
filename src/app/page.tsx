@@ -1,32 +1,31 @@
-import { supabase } from '@/lib/supabase'; // <-- Volvemos al cliente simple
-import VoteControl from '@/components/VoteControl';
-import Link from 'next/link';
-import Tabs from '@/components/Tabs'; 
-import DealActions from '@/components/DealActions'; 
-import { Tab, getDateISO } from '@/utils/helpers'; // Asegúrate de tener este import
-import FeedLayout from '@/components/FeedLayout';
-
-// Eliminamos las importaciones de 'createServerClient' y 'cookies'
+import { createServerSupabaseClient } from '@/lib/supabase-browser'; // Cliente SSR
+import FeedLayout from '@/components/FeedLayout'; 
+import { Tab, getDateISO } from '@/utils/helpers';
+import { supabase } from '@/lib/supabase-browser'; // Cliente simple para las consultas
 
 export const revalidate = 0; 
 
-// ... (funciones auxiliares) ...
+// --- FUNCIONES AUXILIARES (Debe moverlas a helpers.ts si aún las tiene aquí) ---
+// ... (Asegúrese de que timeAgo, getDateISO y Tab se importan de '@/utils/helpers')
 
 export default async function Home() {
   
-  // 1. CONSULTAR DATOS Y FAVORITOS (Usando el cliente simple, el usuario será NULL en el servidor)
-  const { data: { user } } = await supabase.auth.getUser();
-
-  let userFavorites: number[] = [];
-  // La siguiente lógica se mantendrá, pero user será null, por lo que userFavorites será []
-  if (user) {
-      const { data } = await supabase.from('favorites').select('deal_id').eq('user_id', user.id);
-      if (data) { userFavorites = data.map(f => f.deal_id); }
-  }
+  // 1. INICIALIZAR CLIENTE DE SERVIDOR (FIX de Cookies)
+  const serverSupabase = createServerSupabaseClient();
   
   const activeTab: Tab = 'destacados'; 
   
-  // 2. Ejecutar Queries de Feed y Widgets (El resto de la lógica sigue igual)
+  // 2. Identificar usuario y obtener favoritos
+  const { data: { user } } = await serverSupabase.auth.getUser(); // Usamos el cliente SSR
+
+  let userFavorites: number[] = [];
+  if (user) {
+      // Usamos el cliente SSR para consultas seguras
+      const { data } = await serverSupabase.from('favorites').select('deal_id').eq('user_id', user.id);
+      if (data) { userFavorites = data.map(f => f.deal_id); }
+  }
+
+  // 3. Ejecutar Queries
   let dealsQuery = supabase.from('deals').select('*').order('temperature', { ascending: false });
 
   const [dealsResult, topTodayResult, topWeekResult] = await Promise.all([
@@ -40,7 +39,8 @@ export default async function Home() {
   const topWeek = topWeekResult.data;
   
   if (dealsResult.error) console.error('Error cargando deals:', dealsResult.error);
-  // 3. RENDERIZADO FINAL
+  
+  // 4. RENDERIZADO FINAL
   return (
     <main className="min-h-screen bg-[#181a1b] text-gray-300 pb-20 font-sans">
         <FeedLayout 

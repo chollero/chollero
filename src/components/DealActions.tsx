@@ -1,6 +1,6 @@
 'use client';
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase-browser';
 import { useState, useEffect } from 'react';
 
 interface DealActionsProps {

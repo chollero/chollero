@@ -1,46 +1,65 @@
 'use client';
 
-import { createClient } from '@supabase/supabase-js'; // Usamos cliente directo aquí por simplicidad en client components
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { User } from '@supabase/supabase-js';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase-browser'; // Cliente de Browser
+import { useRouter } from 'next/navigation';
 
-// Necesitamos recrear el cliente aquí para componentes de cliente
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+interface UserMenuProps {
+    user: User;
+}
 
-export default function UserMenu({ user }: { user: any }) {
-  const router = useRouter();
+export default function UserMenu({ user }: UserMenuProps) {
+    const [isOpen, setIsOpen] = useState(false);
+    const router = useRouter();
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.refresh(); // Recargar la página para actualizar el estado
-  };
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        router.push('/'); // Redirigir a la página principal
+        router.refresh(); // Forzar la recarga de la cabecera
+    };
+    
+    // Obtenemos el avatar de forma segura
+    const avatarUrl = user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user.email}&background=f05e16&color=fff`;
+    const fullName = user.user_metadata?.full_name || 'Perfil';
 
-  if (!user) {
     return (
-      <Link href="/login" className="text-sm font-bold text-gray-300 hover:text-white transition">
-        Iniciar Sesión
-      </Link>
-    );
-  }
+        <div className="relative">
+            <button 
+                onClick={() => setIsOpen(!isOpen)} 
+                className="flex items-center gap-2 p-1 rounded-full bg-[#212428] hover:bg-[#33373b] transition border border-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+                <span className="text-white text-sm font-semibold hidden md:inline">{fullName}</span>
+                <div className="w-8 h-8 rounded-full overflow-hidden">
+                    <img 
+                        src={avatarUrl} 
+                        alt={fullName} 
+                        className="w-full h-full object-cover"
+                    />
+                </div>
+            </button>
 
-  return (
-    <div className="flex items-center gap-4">
-      <div className="hidden md:flex flex-col items-end">
-        <span className="text-xs text-gray-400">Hola,</span>
-        <span className="text-sm font-bold text-white leading-none">
-            {user.user_metadata?.full_name || 'Usuario'}
-        </span>
-      </div>
-      
-      <button 
-        onClick={handleLogout}
-        className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded transition"
-      >
-        Salir
-      </button>
-    </div>
-  );
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-[#212428] border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                    <div className="p-3 text-sm border-b border-gray-700 text-gray-400">
+                        {user.email}
+                    </div>
+                    <Link 
+                        href="/perfil" 
+                        onClick={() => setIsOpen(false)}
+                        className="block px-4 py-2 text-white hover:bg-orange-600/30 transition text-sm"
+                    >
+                        Mi Perfil
+                    </Link>
+                    <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-900/30 transition text-sm"
+                    >
+                        Cerrar Sesión
+                    </button>
+                </div>
+            )}
+        </div>
+    );
 }

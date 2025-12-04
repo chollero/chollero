@@ -1,25 +1,27 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css"; // <--- ESTA LÍNEA ES LA CLAVE, SIN ELLA NO HAY DISEÑO
-import GlobalHeader from '@/components/GlobalHeader'; // <-- NUEVA IMPORTACIÓN
+// src/app/layout.tsx
+import './globals.css';
+import GlobalHeader from '@/components/GlobalHeader';
+import { createServerSupabaseClient } from '@/lib/supabase-browser'; // Cliente SSR
+import { SessionProvider } from '@/components/SessionProvider'; // Proveedor de estado
 
-const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "Chollero",
-  description: "La mejor comunidad de chollos",
-};
-
-export default function RootLayout({
+export default async function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
+  
+  // 1. Obtener la sesión en el SERVIDOR (SSR)
+  const supabase = createServerSupabaseClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  
   return (
     <html lang="es">
-      <body className="font-sans">
-        <GlobalHeader /> {/* <-- AÑADIDO AQUÍ */}
-        {children}
+      <body className="bg-[#181a1b]">
+        {/* 2. Proveedor de Sesión envuelve toda la App */}
+        <SessionProvider initialSession={session}> 
+          <GlobalHeader />
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );

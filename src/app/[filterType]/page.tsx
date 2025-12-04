@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'; // Cliente simple y estable
+import { supabase } from '@/lib/supabase-browser'; // Cliente simple y estable
 import FeedLayout from '@/components/FeedLayout'; 
 import { Tab, getDateISO } from '@/utils/helpers'; 
 import VoteControl from '@/components/VoteControl'; 
